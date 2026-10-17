@@ -1,0 +1,5 @@
+{"query": "python web framework", "judgments": {"encode/django-rest-framework": 2, "pallets/flask": 2, "django/django": 2, "tornadoweb/tornado": 1, "scrapy/scrapy": 1}}
+{"query": "rust cli tool", "judgments": {"BurntSushi/ripgrep": 2, "sharkdp/bat": 2, "sharkdp/fd": 2, "clap-rs/clap": 1}}
+{"query": "javascript state management", "judgments": {"reduxjs/redux": 2, "pmndrs/zustand": 2, "TanStack/query": 1}}
+{"query": "go http router", "judgments": {"gin-gonic/gin": 2, "labstack/echo": 2, "gorilla/mux": 1}}
+{"query": "machine learning framework", "judgments": {"pytorch/pytorch": 2, "tensorflow/tensorflow": 2, "scikit-learn/scikit-learn": 1}}

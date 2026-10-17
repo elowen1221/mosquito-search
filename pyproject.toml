@@ -1,0 +1,33 @@
+[project]
+name = "mosquito"
+version = "0.1.0"
+description = "GitHub 仓库发现 MVP：自然语言 query → GitHub 搜索 → 规则评分排序"
+readme = "README.md"
+authors = [
+    { name = "GuChen", email = "277858060@qq.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1",
+    "fastembed>=0.8.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "uvicorn[standard]>=0.52.4",
+]
+
+[project.scripts]
+mosquito = "mosquito:main"
+
+[build-system]
+requires = ["uv_build>=0.10.6,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
