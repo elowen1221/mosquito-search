@@ -1,10 +1,10 @@
 [project]
 name = "mosquito"
 version = "0.1.0"
-description = "GitHub 仓库发现 MVP：自然语言 query → GitHub 搜索 → 规则评分排序"
+description = "Natural-language GitHub repository discovery and multi-strategy ranking with offline evaluation"
 readme = "README.md"
 authors = [
-    { name = "GuChen", email = "277858060@qq.com" }
+    { name = "elowen1221" }
 ]
 requires-python = ">=3.12"
 dependencies = [
