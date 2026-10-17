@@ -1,25 +1,25 @@
 # Mosquito
 
-> A lightweight GitHub repository discovery and ranking system for natural-language queries.
+> Natural-language GitHub repository discovery and ranking.
 
-Mosquito turns a natural-language query into GitHub-friendly search terms, retrieves repository candidates through the GitHub Search API, and reranks them with three strategies: **rule-based**, **embedding-based**, and **quality-aware** ranking.
+Mosquito 是一个面向 GitHub 仓库发现的轻量检索与排序项目：把自然语言需求改写成更适合 GitHub Search 的查询，获取候选仓库，再通过 **规则排序、Embedding 语义排序、质量感知排序** 三种策略进行重排，并用人工标注和离线指标评估结果。
 
-The project focuses on one practical question:
+这个项目想回答一个很实际的问题：
 
-> When users describe what they want in natural language, can we retrieve repositories that are not only semantically relevant, but also actually useful?
+> 当用户只知道“我想找什么”，而不知道具体仓库名时，怎样找到既语义相关、又真正值得用的仓库？
 
-## Current Status
+## 当前状态
 
-- End-to-end discovery pipeline is runnable.
-- 20 evaluation queries are included.
-- 359 candidate records were reviewed manually:
-  - highly relevant (2): 191
-  - partially relevant (1): 160
-  - irrelevant (0): 7
-  - unsure: 1
-- 100+ tests pass across ranking, API, retrieval, cache, evaluation, and annotation workflow.
+- 已跑通端到端发现链路
+- 当前包含 20 个评测 query
+- 共 359 条人工审阅记录：
+  - 高度相关（2）：191
+  - 部分相关（1）：160
+  - 不相关（0）：7
+  - 不确定：1
+- 排序、API、检索、缓存、评测和标注流程已有 100+ 测试通过
 
-### Offline evaluation
+### 离线评测结果
 
 | Ranker | P@10 | NDCG@10 | MRR |
 |---|---:|---:|---:|
@@ -27,81 +27,90 @@ The project focuses on one practical question:
 | quality | 0.983 | 0.853 | 1.000 |
 | rules | 0.978 | 0.824 | 1.000 |
 
-The current evaluation shows that **embedding ranking performs best overall on semantic matching**, while the **quality-aware ranker can outperform it on mature-framework queries** where repository quality signals matter more.
+当前结果里：
 
-Examples observed during error analysis:
+- **Embedding 排序整体语义匹配最好**
+- **Quality-aware 排序在成熟框架类查询中有时更占优**
+- **Rules 排序作为可解释 baseline 仍然有价值**
 
-- semantic / task-specific queries: embedding tends to lead;
-- mature framework queries: quality-aware ranking can lead;
-- rule-based ranking remains useful as an interpretable baseline.
+例如在错误分析中可以看到：
+
+- 偏任务语义、描述性强的查询，embedding 更容易领先
+- “成熟框架/稳定项目”类查询，quality-aware 往往更能利用 stars、更新时间、项目规模等质量信号
+- 规则排序虽然整体指标最低，但解释最直接，适合作为 baseline
 
 ## Pipeline
 
 ```text
-Natural-language query
-        ↓
+自然语言 query
+      ↓
 QueryPlanner
-(1–4 GitHub-friendly queries)
-        ↓
+(1–4 个 GitHub 友好查询)
+      ↓
 GitHub Search API
-(up to 50 candidates)
-        ↓
-Merge + deduplicate
-        ↓
+(最多 50 个候选)
+      ↓
+合并 + 去重
+      ↓
 ┌──────────────┬───────────────┬──────────────────┐
 │ rules        │ embedding     │ quality          │
-│ heuristics   │ BGE vectors   │ relevance+quality│
+│ 启发式规则    │ BGE 向量语义   │ relevance+quality│
 └──────────────┴───────────────┴──────────────────┘
-        ↓
-Top-K results
-        ↓
-Manual relevance labels + offline evaluation
+      ↓
+Top-K
+      ↓
+人工相关性标注 + 离线评测
 (P@10 / NDCG@10 / MRR)
 ```
 
-## Ranking Strategies
+## 三种排序策略
 
 ### 1. Rule-based
 
-Uses interpretable repository signals such as:
+使用可解释的仓库信号：
 
-- language match
-- update recency
+- 语言匹配
+- 更新时间
 - stars
 - forks
-- repository size
+- 仓库规模
 
 ### 2. Embedding
 
-Uses:
+使用：
 
-- `fastembed` (ONNX)
+- `fastembed`（ONNX）
 - `BAAI/bge-small-zh-v1.5`
 
-Repository text is embedded and compared against the query for semantic relevance.
+将 query 与仓库文本向量化后计算语义相关性。
 
 ### 3. Quality-aware
 
-Combines semantic relevance and repository quality:
+把语义相关性和仓库质量结合：
 
 ```text
 final_score = 0.6 × relevance + 0.4 × quality
 ```
 
-This is intended to avoid a common failure mode of pure semantic search: retrieving something that sounds relevant but is too weak, stale, or low-quality to be useful.
+它主要用于缓解纯语义检索的一个常见问题：**“描述很像，但项目本身并不好用。”**
 
-## Query Planning & Reliable Retrieval
+## Query Planning 与可靠检索
 
-The online API and offline evaluation share the same QueryPlanner and discovery aggregation logic.
+在线接口和离线评测共用同一套 QueryPlanner 与候选聚合逻辑。
 
-- Natural-language input is deterministically rewritten into **1–4 GitHub-friendly queries**.
-- Planned queries are searched independently and merged by `full_name`.
-- Discovery distinguishes `success`, `empty`, `rate_limited`, `network_error`, and `api_error`.
-- Rate limits, 5xx responses, and transient network errors use bounded exponential backoff.
-- Evaluation discovery supports deterministic local caching.
-- A retrieval failure is never silently converted into an empty result.
+- 自然语言输入会被确定性地改写成 **1–4 个 GitHub 友好查询**
+- 多个查询独立检索后按 `full_name` 合并去重
+- 检索结果区分：
+  - `success`
+  - `empty`
+  - `rate_limited`
+  - `network_error`
+  - `api_error`
+- 限流、5xx 和临时网络错误使用有界指数退避
+- 离线评测支持确定性本地缓存
+- 检索失败不会被静默伪装为空结果
 
-## Tech Stack
+## 技术栈
 
 - Python 3.12
 - FastAPI
@@ -117,12 +126,12 @@ The online API and offline evaluation share the same QueryPlanner and discovery 
 ```bash
 uv sync
 
-# Optional: configure a GitHub token
+# 可选：配置 GitHub Token
 cp .env.example .env
-# Edit .env and set GITHUB_TOKEN if needed.
+# 编辑 .env，按需填写 GITHUB_TOKEN
 
 uv run mosquito
-# or
+# 或
 uv run uvicorn mosquito.main:app --reload
 ```
 
@@ -130,14 +139,14 @@ uv run uvicorn mosquito.main:app --reload
 
 ### `POST /discover`
 
-| Field | Type | Default | Description |
+| 字段 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| `query` | string | required | Natural-language search request |
-| `limit` | int | 10 | Number of results to return (1–50) |
+| `query` | string | 必填 | 自然语言搜索描述 |
+| `limit` | int | 10 | 返回结果数量（1–50） |
 | `ranking` | string | `rules` | `rules` / `embedding` / `quality` |
-| `compare` | bool | `false` | Return all ranking strategies for comparison |
+| `compare` | bool | `false` | 是否同时返回三种排序结果 |
 
-Example:
+示例：
 
 ```json
 {
@@ -148,49 +157,49 @@ Example:
 }
 ```
 
-## Evaluation Workflow
+## 评测流程
 
-### Build a judgment pool
+### 1. 构建候选池
 
 ```bash
 uv run python scripts/build_judgment_pool.py
 ```
 
-Candidate repositories from all rankers are pooled and deduplicated. The annotation file does not expose ranker scores, reducing direct ranking bias during labeling.
+三种 ranker 的候选结果会被合并去重。人工标注文件不暴露 ranker 分数，尽量减少直接排名信息对标注的影响。
 
-### Prepare and annotate
+### 2. 准备并进行人工标注
 
 ```bash
 uv run python scripts/prepare_annotations.py
 uv run python scripts/annotate.py
 ```
 
-Labels:
+标注规则：
 
-- `2`: highly relevant
-- `1`: partially relevant
-- `0`: irrelevant
-- `u`: unsure
-- `s`: skip
-- `q`: quit
+- `2`：高度相关
+- `1`：部分相关
+- `0`：不相关
+- `u`：不确定
+- `s`：跳过
+- `q`：退出
 
-Annotations are saved incrementally and can be resumed.
+标注会逐条保存，可中断后继续。
 
-### Evaluate
+### 3. 离线评测
 
 ```bash
 uv run python scripts/evaluate_annotations.py
 ```
 
-The evaluator reports per-query and macro:
+当前输出包括：
 
 - Precision@10
 - NDCG@10
 - MRR
-- judged coverage
-- relevant / highly relevant counts
+- 已标注覆盖率
+- relevant / highly relevant 数量
 
-## Project Structure
+## 项目结构
 
 ```text
 src/mosquito/
@@ -221,23 +230,22 @@ tests/
 
 ## Limitations
 
-The current numbers should **not** be interpreted as production-grade benchmark results.
+当前结果只能作为**阶段性离线评测**，不能直接理解成生产环境 benchmark。
 
-1. The labeled set comes from a pooled Top-K candidate set rather than exhaustive relevance judgments over all GitHub results.
-2. The current label distribution is highly positive (only 7 explicit negatives), which makes P@10 and especially MRR easy to saturate.
-3. Repositories outside the pooled candidate set are not judged.
-4. The evaluation currently covers 20 queries and should be expanded with harder negatives and more diverse query types.
-5. Ranking quality can depend on GitHub Search candidate generation; reranking cannot recover repositories that never enter the candidate pool.
+1. 当前标注集来自 Top-K pooled candidate set，不是对 GitHub 全量结果的穷举式相关性标注
+2. 当前标签明显偏正样本，只有 7 条显式负例，因此 P@10 和尤其 MRR 很容易饱和
+3. 候选池以外的仓库没有被人工判断
+4. 当前只有 20 个 query，仍需要更难的负例和更多查询类型
+5. 最终 rerank 效果仍受 GitHub Search 初始候选生成质量限制；没有进入候选池的仓库无法被后续排序“救回来”
 
-These limitations are part of the next iteration rather than hidden evaluation assumptions.
+这些限制会作为后续迭代的一部分继续处理，而不是隐藏在结果里。
 
 ## Next Steps
 
-- expand the query set and add harder negatives;
-- improve candidate generation and recall-oriented evaluation;
-- add Recall@K / candidate-pool coverage analysis;
-- test adaptive weighting between semantic relevance and repository quality;
-- add a lightweight demo UI and clearer result explanations.
+- 扩展 query 集并加入 harder negatives
+- 加强 candidate generation，并补 Recall@K / candidate-pool coverage 分析
+- 探索 relevance 与 quality 的自适应权重
+- 增加轻量 Demo UI 和更直观的排序解释
 
 ## Tests
 
@@ -245,4 +253,4 @@ These limitations are part of the next iteration rather than hidden evaluation a
 uv run pytest
 ```
 
-The test suite covers ranking, API behavior, query planning, GitHub retrieval, caching, evaluation metrics, datasets, and annotation workflow.
+测试覆盖排序、API、QueryPlanner、GitHub 检索、缓存、评测指标、数据集与人工标注流程。
