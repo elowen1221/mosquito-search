@@ -10,3 +10,15 @@ wheels/
 .venv
 .env
 .uv-cache/
+
+# BERT 训练产物和大型权重
+data/bert/
+data/bert_smoke/
+data/models/
+*.bin
+*.pt
+*.safetensors
+
+# 编辑器
+.idea/
+.vscode/

@@ -1,4 +1,4 @@
-"""DiscoverService：编排 数据源搜索 → 排序（rules / embedding / quality，可对比）。"""
+"""DiscoverService：编排 数据源搜索 → 排序（rules / embedding / quality / bert，可对比）。"""
 
 from fastapi import HTTPException
 
@@ -23,6 +23,7 @@ class DiscoverService:
         rule_ranker: Ranker,
         embedding_ranker: Ranker,
         quality_ranker: Ranker,
+        bert_ranker: Ranker | None = None,
         planner: QueryPlanner | None = None,
         retrieval: RetrievalService | None = None,
     ) -> None:
@@ -30,6 +31,7 @@ class DiscoverService:
         self.rule_ranker = rule_ranker
         self.embedding_ranker = embedding_ranker
         self.quality_ranker = quality_ranker
+        self.bert_ranker = bert_ranker
         self.planner = planner or QueryPlanner()
         self.retrieval = retrieval or RetrievalService(source)
 
@@ -38,6 +40,10 @@ class DiscoverService:
             return self.rule_ranker
         if ranking == "embedding":
             return self.embedding_ranker
+        if ranking == "bert":
+            if self.bert_ranker is None:
+                raise HTTPException(status_code=503, detail="bert ranker 未启用")
+            return self.bert_ranker
         return self.quality_ranker
 
     async def discover(
@@ -61,7 +67,11 @@ class DiscoverService:
             rules = self.rule_ranker.rank(candidates, query)[:limit]
             embedding = self.embedding_ranker.rank(candidates, query)[:limit]
             quality = self.quality_ranker.rank(candidates, query)[:limit]
-            chosen = {"rules": rules, "embedding": embedding, "quality": quality}[ranking]
+            bert_ranked = self.bert_ranker.rank(candidates, query)[:limit] if self.bert_ranker else None
+            chosen = {
+                "rules": rules, "embedding": embedding, "quality": quality,
+                "bert": bert_ranked or rules,
+            }[ranking]
             return DiscoverResponse(
                 query=query,
                 total=len(candidates),

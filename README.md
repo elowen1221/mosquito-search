@@ -254,3 +254,45 @@ uv run pytest
 ```
 
 测试覆盖排序、API、QueryPlanner、GitHub 检索、缓存、评测指标、数据集与人工标注流程。
+
+- 三种排序均为纯单元测试（假 embedder，不依赖网络与模型）
+- GitHubSource 用 `httpx.MockTransport` 模拟
+- API 用依赖覆盖注入假数据源
+- 评测指标 / 数据集加载 / 评测器均有独立单元测试
+- BertRanker 用 stub scorer，不下载真实 torch/transformers 权重
+
+## BERT Cross-Encoder 二阶段重排序
+
+在候选召回后增加 cross-encoder 精细精排层，与现有 ranker 完全兼容。
+
+```bash
+# 安装可选依赖（torch + transformers，约 2GB）
+uv sync --extra bert
+
+# 训练 BERT Cross-Encoder（默认 bert-base-multilingual-cased）
+uv run python scripts/train_bert_reranker.py
+# smoke test（1 epoch，每个 split 截断到 2 个 query）
+uv run python scripts/train_bert_reranker.py --smoke-test
+# 指定模型名和输出目录
+uv run python scripts/train_bert_reranker.py --model bert-base-multilingual-cased --output data/bert/
+
+# held-out test 评测（对比 rules/embedding/quality/bert）
+uv run python scripts/evaluate_bert_reranker.py --bert-model data/bert/best
+```
+
+**架构**：Query → QueryPlanner → GitHub Search → 并集去重 → 第一阶段快速 ranker（默认 quality）取 Top-N 截断 → BERT Cross-Encoder 批量 rerank → Top-K 返回。Top-N 默认 20，可配置，避免对几百个候选逐条跑 BERT。
+
+**数据切分**（冻结，按 query 分组，零泄漏）：
+- Train: 12 queries → 233 pairs
+- Val: 3 queries（checkpoint selection 用）→ 63 pairs
+- Test: 3 queries（held-out，训练与选模期间完全不加载）
+
+**二分类标签定义**：judgment=2 → positive，judgment in (0,1) → negative。冻结数据统计：
+
+| Split | Pairs | Positive | Negative | Positive 占比 |
+|---|---|---|---|---|
+| TRAIN | 233 | 96 | 137 | 41% |
+| VAL | 63 | 40 | 23 | 63% |
+| TRAIN + VAL | 296 | 136 | 160 | 46% |
+
+训练后的模型可通过 `BERT_MODEL_PATH` 环境变量配置给线上服务，或直接在 `/discover` 中选择 `ranking=bert`。

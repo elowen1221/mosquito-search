@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from mosquito.models.ranking import QualityRankedRepo, RankedRepo
 
-RankingMode = Literal["rules", "embedding", "quality"]
+RankingMode = Literal["rules", "embedding", "quality", "bert"]
 
 
 class DiscoverRequest(BaseModel):

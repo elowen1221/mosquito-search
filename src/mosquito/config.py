@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     github_token: str | None = None
     github_search_per_page: int = 50
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
+    bert_model_path: str | None = None
 
 
 settings = Settings()
