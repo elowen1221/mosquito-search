@@ -3,6 +3,7 @@
 import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import partial
 from typing import Callable
 
 from mosquito.models.repo import RepoCandidate
@@ -64,15 +65,20 @@ def language_match(candidate: RepoCandidate, query: str) -> RuleResult:
     return RuleResult(0.0, "")
 
 
-def recency(candidate: RepoCandidate, query: str) -> RuleResult:
-    """pushed_at 越新分越高。"""
+def recency_at(candidate: RepoCandidate, query: str, evaluation_time: datetime) -> RuleResult:
+    """带固定 evaluation_time 的确定性 recency 评分（用于 benchmark）。"""
     if candidate.pushed_at is None:
         return RuleResult(0.0, "")
-    days = (datetime.now(timezone.utc) - candidate.pushed_at).days
+    days = max(0, (evaluation_time - candidate.pushed_at).days)
     for threshold, score in RECENCY_BUCKETS:
         if days <= threshold:
             return RuleResult(score, f"最近更新于 {days} 天前")
     return RuleResult(0.0, "")
+
+
+def recency(candidate: RepoCandidate, query: str) -> RuleResult:
+    """pushed_at 越新分越高（production 默认，用当前 UTC 时间）。"""
+    return recency_at(candidate, query, datetime.now(timezone.utc))
 
 
 def stars(candidate: RepoCandidate, query: str) -> RuleResult:
@@ -99,3 +105,21 @@ def project_size(candidate: RepoCandidate, query: str) -> RuleResult:
 
 
 DEFAULT_RULES: list[Rule] = [language_match, recency, stars, forks, project_size]
+
+
+def make_default_rules(evaluation_time: datetime | None = None) -> list[Rule]:
+    """构造默认规则列表。
+
+    - evaluation_time=None（production 默认）：recency 用 datetime.now(timezone.utc)。
+    - evaluation_time 给定（benchmark）：recency 被 partial 绑定为固定时间，
+      结果完全可复现，且不依赖任何 callable identity check。
+    """
+    if evaluation_time is None:
+        return list(DEFAULT_RULES)
+    return [
+        language_match,
+        partial(recency_at, evaluation_time=evaluation_time),
+        stars,
+        forks,
+        project_size,
+    ]

@@ -19,6 +19,12 @@ data/models/
 *.pt
 *.safetensors
 
+# Benchmark 运行产物（frozen snapshot + 每次运行输出）
+data/benchmark/
+data/evaluation/repo_candidates.jsonl
+data/evaluation/repo_candidates.jsonl.manifest.json
+data/bert/test_eval_frozen.json
+
 # 编辑器
 .idea/
 .vscode/

@@ -172,3 +172,15 @@ class BertRanker:
             )
         reranked.sort(key=lambda r: r.score, reverse=True)
         return reranked
+
+    def score_all(self, query: str, candidates: list[RepoCandidate]) -> list[tuple[RepoCandidate, float]]:
+        """对传入全部 candidates 打分，不调用 production first-stage，不 top_n 截断。
+
+        benchmark harness 专用：返回 (candidate, score) 的原始列表，
+        score 与 _score_batch 语义完全一致（softmax 正类概率）。
+        production rank() 行为完全不受影响。
+        """
+        self._ensure_loaded()
+        pairs = [_build_pair(query, build_repo_text(c)) for c in candidates]
+        scores = self._score_batch(pairs)
+        return list(zip(candidates, scores))

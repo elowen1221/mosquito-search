@@ -16,6 +16,7 @@ import pytest
 
 from mosquito.models.repo import RepoCandidate
 from mosquito.ranking.bert.ranker import DEFAULT_MAX_LENGTH, BertRanker, BertLoadError
+from mosquito.ranking.embedding.text import build_repo_text
 
 
 def _candidates(n: int = 5) -> list[RepoCandidate]:
@@ -160,3 +161,70 @@ def test_max_length_is_explicit_configurable_not_magic_number():
 def test_inference_batch_size_remains_independent_of_training_batch_size():
     """推理 batch_size 可保持 16，不要求与训练 batch_size=8 一致。"""
     assert BertRanker().batch_size == 16
+
+
+# --- score_all：benchmark harness 专用的全量 cross-encoder scoring ---
+
+
+def test_score_all_preserves_input_count_and_order_mapping():
+    """score_all 必须对传入全部 candidates 打分，输出长度等于输入，顺序一一对应。"""
+    torch = pytest.importorskip("torch")
+
+    class _FixedModel:
+        def __call__(self, **enc):
+            n = enc["input_ids"].shape[0]
+            # 每个 pair 的分数不同：softmax[:, 1] 会取第二个 logit
+            logs = torch.tensor([[0.0, float(i + 1)] for i in range(n)])
+            return SimpleNamespace(logits=logs)
+
+    ranker = BertRanker(_tokenizer=lambda *a, **k: {"input_ids": torch.zeros(len(a[0]), 4, dtype=torch.long)},
+                        _model=_FixedModel(), device="cpu", max_length=256)
+    cands = _candidates(4)
+    results = ranker.score_all("q", cands)
+
+    assert len(results) == 4
+    # 每个输出的 RepoCandidate 必须是输入的同一个对象
+    out_names = [c.full_name for c, _ in results]
+    assert out_names == [c.full_name for c in cands]  # 顺序未被打乱
+    for i, (c, s) in enumerate(results):
+        assert c is cands[i], f"score_all must preserve identity, got {c.full_name} vs {cands[i].full_name}"
+        assert 0.0 < s < 1.0  # softmax 概率
+
+
+def test_score_all_does_not_call_first_stage():
+    """score_all 绕开 production first-stage，即使 top_n=1 也能对全部候选打分。"""
+    torch = pytest.importorskip("torch")
+
+    class _FixedModel:
+        def __call__(self, **enc):
+            n = enc["input_ids"].shape[0]
+            return SimpleNamespace(logits=torch.tensor([[0.0, 1.0]] * n))
+
+    ranker = BertRanker(top_n=1, _tokenizer=lambda *a, **k: {"input_ids": torch.zeros(len(a[0]), 4, dtype=torch.long)},
+                        _model=_FixedModel(), device="cpu")
+    cands = _candidates(10)  # 10 个候选，top_n=1 极小
+    results = ranker.score_all("q", cands)
+
+    # production rank() 会截断到 top_n=1，但 score_all 必须打全部 10 个
+    assert len(results) == 10, "score_all must bypass first-stage truncation"
+
+
+def test_score_all_scoring_consistent_with_score_batch():
+    """score_all 内部复用 _score_batch —— 分数语义必须完全一致。"""
+    torch = pytest.importorskip("torch")
+
+    class _FixedModel:
+        def __call__(self, **enc):
+            n = enc["input_ids"].shape[0]
+            logs = torch.tensor([[float(-i), float(i)] for i in range(1, n + 1)])
+            return SimpleNamespace(logits=logs)
+
+    tok = lambda *a, **k: {"input_ids": torch.zeros(len(a[0]), 4, dtype=torch.long)}
+    ranker = BertRanker(_tokenizer=tok, _model=_FixedModel(), device="cpu")
+    cands = _candidates(5)
+    results = ranker.score_all("q", cands)
+    # score_all 内部用 build_repo_text(c) 构 pair — 与 _score_batch 同构
+    direct = ranker._score_batch([("q", build_repo_text(c)) for c in cands])
+
+    for i, (_, s) in enumerate(results):
+        assert abs(s - direct[i]) < 1e-9, f"score_all[{i}]={s} != _score_batch[{i}]={direct[i]}"

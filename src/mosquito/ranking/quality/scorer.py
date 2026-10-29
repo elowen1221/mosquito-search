@@ -2,6 +2,9 @@
 
 特征归一化原则：GitHub 指标呈幂律分布，采用对数 + cap 有界归一化，
 避免 min-max 对离群值敏感；权重预算限制单一特征（尤其 stars）的贡献上限。
+
+时间冻结：__init__ 接受可选 evaluation_time，用于 deterministic benchmark。
+不传入时 production 默认行为不变（用 datetime.now(timezone.utc)）。
 """
 
 import math
@@ -37,7 +40,17 @@ class QualityBreakdown:
 
 
 class QualityScorer:
-    """对单个 RepoCandidate 计算质量分（[0,1]），不依赖 query 与 embedding。"""
+    """对单个 RepoCandidate 计算质量分（[0,1]），不依赖 query 与 embedding。
+
+    evaluation_time=None 时 maintenance 用 datetime.now(timezone.utc)，
+    传入固定时间则 production 行为保持不变但 benchmark 可 deterministic。
+    """
+
+    def __init__(self, evaluation_time: datetime | None = None) -> None:
+        self._eval_time = evaluation_time
+
+    def _now(self) -> datetime:
+        return self._eval_time if self._eval_time is not None else datetime.now(timezone.utc)
 
     @staticmethod
     def _log_norm(value: int, cap: int) -> float:
@@ -51,10 +64,10 @@ class QualityScorer:
         return round(0.7 * stars + 0.3 * forks, 4)
 
     def _maintenance(self, repo: RepoCandidate) -> float:
-        """维护新鲜度：pushed_at 距今天数指数衰减，τ=180 天。"""
+        """维护新鲜度：pushed_at 距 evaluation_time 指数衰减，τ=180 天。"""
         if repo.pushed_at is None:
             return 0.0
-        days = max(0, (datetime.now(timezone.utc) - repo.pushed_at).days)
+        days = max(0, (self._now() - repo.pushed_at).days)
         return round(math.exp(-days / RECENCY_TAU_DAYS), 4)
 
     def _scale(self, repo: RepoCandidate) -> float:

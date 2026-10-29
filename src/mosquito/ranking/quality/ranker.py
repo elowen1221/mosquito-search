@@ -14,11 +14,19 @@ W_QUALITY = 0.4
 
 
 class QualityRanker:
-    """final_score = 0.6·relevance + 0.4·quality，按 final_score 降序。"""
+    """final_score = 0.6·relevance + 0.4·quality，按 final_score 降序。
 
-    def __init__(self, embedder: Embedder | None = None, scorer: QualityScorer | None = None) -> None:
+    evaluation_time=None 时 maintenance 用当前时间；传入固定时间则 benchmark 可 deterministic。
+    """
+
+    def __init__(
+        self,
+        embedder: Embedder | None = None,
+        scorer: QualityScorer | None = None,
+        evaluation_time=None,
+    ) -> None:
         self.relevance_ranker = EmbeddingRanker(embedder=embedder)
-        self.scorer = scorer or QualityScorer()
+        self.scorer = scorer or QualityScorer(evaluation_time=evaluation_time)
 
     def rank(self, candidates: list[RepoCandidate], query: str) -> list[QualityRankedRepo]:
         if not candidates:

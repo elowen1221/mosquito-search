@@ -1,15 +1,28 @@
 """Ranker：聚合规则计算总分并排序。"""
 
+from datetime import datetime, timezone
+
 from mosquito.models.ranking import RankedRepo
 from mosquito.models.repo import RepoCandidate
-from mosquito.ranking.rules import DEFAULT_RULES, Rule
+from mosquito.ranking.rules import make_default_rules
 
 
 class Ranker:
-    """对候选仓库应用规则评分，返回按 score 降序的 RankedRepo 列表。"""
+    """对候选仓库应用规则评分，返回按 score 降序的 RankedRepo 列表。
 
-    def __init__(self, rules: list[Rule] | None = None) -> None:
-        self.rules = rules if rules is not None else DEFAULT_RULES
+    evaluation_time=None 时 recency 用 datetime.now(timezone.utc)（production 默认），
+    传入固定时间则 benchmark 可 deterministic。
+
+    确定性实现：__init__ 时通过 make_default_rules() 把 recency 预先 partial 绑定到
+    固定 evaluation_time，rank() 内不再做任何 callable identity check。
+    """
+
+    def __init__(self, rules=None, evaluation_time: datetime | None = None) -> None:
+        if rules is None:
+            self.rules = make_default_rules(evaluation_time)
+        else:
+            self.rules = rules
+        self.evaluation_time = evaluation_time
 
     def rank(self, candidates: list[RepoCandidate], query: str) -> list[RankedRepo]:
         ranked: list[RankedRepo] = []

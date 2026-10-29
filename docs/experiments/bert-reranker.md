@@ -76,10 +76,47 @@
 
 **必须同时记录的限定条件**
 
-- TEST relevant density 极高（55/62 = **88.7%** 为 `judgment >= 1`），候选集内几乎没有不相关项。
-- 因此 **P@10 = 1.0 与 MRR = 1.0 是天花板效应，不表示模型达到完美排序**。
-- NDCG@10 仍保留 graded 信息（0/1/2），是唯一有一定区分度的指标。
+- **relevance 定义区分**（不可混淆）：
+  - **二分类训练 target**：judgment==2 → positive(1)；judgment in {0,1} → negative(0)。这是 cross-encoder 用的 label scheme，不直接等价于 ranking evaluator。
+  - **排序 evaluator relevance**：judgment >= 1 → relevant（P@10/MRR）；judgment 0/1/2 原始分级 → NDCG。当前 annotation 在 VAL/TEST 上 **没有任何 judgment=0 的记录**（VAL 63 条、TEST 62 条 judgment=0 都是 0）。
+- **因此 VAL/TEST 的 relevant density（judgment >= 1）= 100%**，P@10 和 MRR **结构性饱和，对任何 ranker 都会输出 1.0**，完全无区分度。
+- 之前文档中错误出现过 "TEST relevant density = 88.7%" — 这实际是 **high-relevance density（judgment==2 / 总量）**：VAL 40/63=63.5%，TEST 55/62=88.7%。NDCG@10 唯一能用到 graded 2/1 差异，是 VAL/TEST 上**唯一有区分力的主指标**。
 - 3 条 query 的样本量极小，置信区间很宽，不应据此做显著性声明。
+
+当前数据集本质上是 **graded reranking benchmark**（需要 judgment=0 才能成为完整 retrieval benchmark）。
+
+---
+
+## 3a. Apples-to-Apples Graded Reranking Benchmark（VAL，frozen candidate pool）
+
+**目标**：在完全相同的 candidate pool 下、相同的 evaluator、相同的 relevance 定义下，对多个 ranker 做严格公平比较。所有 ranker 对同一 query 收到完全相同的 candidate IDs。
+
+- Harness：`scripts/benchmark_rankers.py`
+- Frozen candidate snapshot：`data/evaluation/repo_candidates.jsonl`（355 repos，gitignored）
+- BERT 打分 API：`BertRanker.score_all()`（绕过 production first-stage + top_n 截断，全量 cross-encoder）
+- Rules deterministic：`--evaluation-time 2026-10-27T00:00:00Z` 注入固定时间
+
+**VAL 结果（2026-10-29 运行，3 queries，63 labeled records）**
+
+| Ranker | NDCG@10 | P@10 | MRR |
+|---|---|---|---|
+| Rules | 0.8418 | 1.0 | 1.0 |
+| BERT (score_all) | 0.8405 | 1.0 | 1.0 |
+
+- Embedding / Quality：因 `BAAI/bge-small-zh-v1.5` 本地权重缺失，**未运行**（harness fail-fast，不 silent fallback）。
+
+**明确结论**
+
+- **当前结果不足以证明 BERT 优于 Rules**。差值仅 0.0013（BERT 略低），且 VAL 仅 3 条 query，统计上无区分力。
+- 不描述为 BERT improvement；不据此重训、调参或改变冻结 BERT protocol。
+- P@10 / MRR = 1.0 是结构性饱和（VAL judgment=0 为 0），无比较能力；NDCG@10 是唯一有分级信号的指标。
+- BERT NDCG@10 = 0.8405 与 Formal Training 的 VAL 选模结果完全一致，验证了 `score_all()` 与 production scoring 等价。
+
+**Snapshot Provenance / 可复现性限制**
+
+- `data/evaluation/repo_candidates.jsonl` 由 `scripts/extract_repo_candidates.py` 从 `data/evaluation/discovery_cache.json` + annotations 提取，输出稳定排序（full_name 升序），SHA256 可比较。
+- **Discovery cache 本身不是 git 内可复现 artifact**（含实时 GitHub 搜索结果，不在版本控制中）。同一冻结输入重新生成 snapshot 时内容排序稳定、SHA256 可比较，但上游 cache 一旦变化则 snapshot 内容不同。
+- 论文 artifact release 时需另行发布 frozen candidate snapshot（含 manifest）以保证完全可复现。manifest sidecar 记录：snapshot SHA256、repo count、source annotations SHA256、source cache SHA256 + entries、extractor git commit、generation timestamp。
 
 ---
 
