@@ -76,7 +76,9 @@ class DiscoverService:
                 query=query,
                 total=len(candidates),
                 results=chosen,
-                comparison=ComparisonResult(rules=rules, embedding=embedding, quality=quality),
+                comparison=ComparisonResult(
+                    rules=rules, embedding=embedding, quality=quality, bert=bert_ranked
+                ),
             )
 
         ranked = self._select(ranking).rank(candidates, query)

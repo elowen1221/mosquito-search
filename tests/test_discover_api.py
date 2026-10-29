@@ -3,11 +3,22 @@
 from fastapi.testclient import TestClient
 
 from mosquito.main import app, get_discover_service
+from mosquito.models.ranking import RankedRepo
 from mosquito.ranking.embedding.ranker import EmbeddingRanker
 from mosquito.ranking.quality.ranker import QualityRanker
 from mosquito.ranking.ranker import Ranker
 from mosquito.services.discover import DiscoverService
 from mosquito.sources.github import GitHubAuthError
+
+
+class StubBertRanker:
+    """假 BERT ranker（不加载 torch/transformers），分数固定 0.5 以区分来源。"""
+
+    def rank(self, candidates: list, query: str) -> list[RankedRepo]:
+        return [
+            RankedRepo(candidate=c, score=0.5, reasons=["bert stub"])
+            for c in sorted(candidates, key=lambda c: c.full_name, reverse=True)
+        ]
 
 
 class FakeSource:
@@ -24,13 +35,14 @@ class FakeSource:
         return self.candidates[:limit]
 
 
-def build_client(candidates: list, embedder=None) -> tuple[TestClient, FakeSource]:
+def build_client(candidates: list, embedder=None, bert_ranker=None) -> tuple[TestClient, FakeSource]:
     fake = FakeSource(candidates)
     service = DiscoverService(
         source=fake,
         rule_ranker=Ranker(),
         embedding_ranker=EmbeddingRanker(embedder=embedder),
         quality_ranker=QualityRanker(embedder=embedder),
+        bert_ranker=bert_ranker,
     )
 
     def override() -> DiscoverService:
@@ -135,6 +147,33 @@ def test_discover_compare_with_quality_ranking(make_candidate, controlled_embedd
     )
     body = resp.json()
     assert body["results"] == body["comparison"]["quality"]
+
+
+def test_discover_compare_includes_bert_when_enabled(make_candidate, controlled_embedder):
+    candidates = [make_candidate("a", stars=500), make_candidate("b", stars=10)]
+    client, _ = build_client(
+        candidates, embedder=controlled_embedder, bert_ranker=StubBertRanker()
+    )
+
+    body = client.post(
+        "/discover", json={"query": "python", "ranking": "bert", "compare": True}
+    ).json()
+    assert body["comparison"]["bert"] is not None
+    assert len(body["comparison"]["bert"]) == 2
+    assert all(r["reasons"] == ["bert stub"] for r in body["comparison"]["bert"])
+    # ranking=bert 时 results 就是 BERT 排序
+    assert body["results"] == body["comparison"]["bert"]
+
+
+def test_discover_compare_bert_is_none_when_disabled(make_candidate, controlled_embedder):
+    candidates = [make_candidate("a", stars=500), make_candidate("b", stars=10)]
+    client, _ = build_client(candidates, embedder=controlled_embedder)
+
+    resp = client.post("/discover", json={"query": "python", "compare": True})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["comparison"]["bert"] is None
+    assert len(body["comparison"]["rules"]) == 2
 
 
 def test_discover_rejects_empty_query(make_candidate):
