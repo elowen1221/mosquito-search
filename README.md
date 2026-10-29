@@ -296,3 +296,64 @@ uv run python scripts/evaluate_bert_reranker.py --bert-model data/bert/best
 | TRAIN + VAL | 296 | 136 | 160 | 46% |
 
 训练后的模型可通过 `BERT_MODEL_PATH` 环境变量配置给线上服务，或直接在 `/discover` 中选择 `ranking=bert`。
+
+## 手机 Web UI
+
+移动优先搜索页面，零前端构建（纯 HTML/CSS/JS）：
+
+```bash
+# 启动后手机浏览器访问 http://<your-server-ip>:8000/
+uv run uvicorn mosquito.main:app --host 0.0.0.0 --port 8000
+```
+
+- 自然语言搜索框 + ranking 选择（quality / embedding / bert）+ limit + compare
+- 3 个 demo preset query，方便线下面试一键演示
+- repo card：full_name / description / language / stars / score / reasons / GitHub 链接
+- `/health` endpoint 返回最小 liveness 信息，不泄露敏感数据
+
+## 生产部署
+
+### 安装与启动
+
+```bash
+# 基础安装（无 BERT，约 200MB）
+uv sync
+
+# 完整安装（含 BERT，约 2GB）
+uv sync --extra bert
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env：GITHUB_TOKEN（可选）、BERT_MODEL_PATH（可选）
+
+# 生产启动（必须绑定 127.0.0.1，由反向代理负责 HTTPS）
+uv run uvicorn mosquito.main:app --host 127.0.0.1 --port 8000
+```
+
+### systemd（deploy/mosquito.service）
+
+```bash
+sudo cp deploy/mosquito.service /etc/systemd/system/
+sudo useradd -r mosquito  # 首次部署
+# 在仓库根目录执行：把代码同步到 /opt/mosquito
+sudo mkdir -p /opt/mosquito && sudo rsync -a ./ /opt/mosquito/ && sudo chown -R mosquito:mosquito /opt/mosquito
+sudo systemctl daemon-reload
+sudo systemctl enable --now mosquito
+sudo journalctl -u mosquito -f
+```
+
+### nginx 反向代理（deploy/nginx.conf）
+
+```bash
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/mosquito
+sudo ln -s /etc/nginx/sites-available/mosquito /etc/nginx/sites-enabled/
+sudo certbot certonly --standalone -d your-domain.com
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 安全要求
+
+- 服务绑定 `127.0.0.1`，由反向代理负责 HTTPS 和公网暴露
+- GitHub Token、BERT_MODEL_PATH 等私密配置只能通过 `.env` / 环境变量注入
+- `.env`、`data/bert/`、`*.bin` / `*.pt` / `*.safetensors` 已在 `.gitignore` 中排除
+- `/health` endpoint 不泄露 token / 路径 / 环境变量

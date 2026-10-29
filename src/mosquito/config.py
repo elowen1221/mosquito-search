@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     github_search_per_page: int = 50
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
     bert_model_path: str | None = None
+    mosquito_host: str = "127.0.0.1"
+    mosquito_port: int = 8000
 
 
 settings = Settings()

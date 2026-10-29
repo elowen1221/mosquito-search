@@ -1,10 +1,13 @@
-"""mosquito FastAPI 入口：API + /health。"""
+"""mosquito FastAPI 入口：API + /health + 手机 Web UI。"""
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from fastapi import Depends, FastAPI
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from mosquito.config import settings
 from mosquito.models.discover import DiscoverRequest, DiscoverResponse
@@ -41,7 +44,6 @@ def _make_bert_ranker() -> BertRanker | None:  # type: ignore[valid-type]
 
 
 def get_discover_service() -> DiscoverService:
-    # 排序逻辑在各自 Ranker 内，route 只做编排调用
     return DiscoverService(
         source=GitHubSource(),
         rule_ranker=Ranker(),
@@ -76,3 +78,14 @@ async def health() -> dict:
         "bert_model_configured": bool(settings.bert_model_path),
         "github_authenticated": bool(settings.github_token),
     }
+
+
+# --- 手机 Web UI ---
+
+_WEB_DIR = Path(__file__).resolve().parent / "web"
+app.mount("/static", StaticFiles(directory=str(_WEB_DIR)), name="static")
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index() -> str:
+    return (_WEB_DIR / "index.html").read_text(encoding="utf-8")

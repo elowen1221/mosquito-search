@@ -1,0 +1,18 @@
+[Unit]
+Description=Mosquito GitHub Repository Discovery
+After=network.target
+
+[Service]
+Type=simple
+User=mosquito
+WorkingDirectory=/opt/mosquito
+EnvironmentFile=/opt/mosquito/.env
+ExecStart=/opt/mosquito/.venv/bin/uvicorn mosquito.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+# BERT 模型可能占用较多内存，限制在 2GB 内
+MemoryMax=2048M
+
+[Install]
+WantedBy=multi-user.target

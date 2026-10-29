@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f172a">
+<title>mosquito · GitHub 仓库发现</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  min-height: 100vh;
+  line-height: 1.5;
+}
+.container { max-width: 560px; margin: 0 auto; padding: 1rem; }
+
+header { text-align: center; padding: 1.5rem 0 1rem; }
+h1 { font-size: 1.3rem; font-weight: 600; color: #f1f5f9; }
+.sub { font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem; }
+
+.search-card {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+textarea {
+  width: 100%;
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.95rem;
+  resize: none;
+  min-height: 3rem;
+  font-family: inherit;
+}
+textarea:focus { outline: none; border-color: #3b82f6; }
+
+.row { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+select, input[type="number"] {
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+label.inline { font-size: 0.8rem; color: #94a3b8; display: flex; align-items: center; gap: 0.25rem; }
+
+button.search-btn {
+  width: 100%;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+button.search-btn:active { background: #2563eb; }
+button.search-btn:disabled { background: #475569; cursor: not-allowed; }
+
+.presets { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.preset-btn {
+  background: #334155;
+  color: #cbd5e1;
+  border: none;
+  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.preset-btn:active { background: #475569; }
+
+.status { padding: 0.75rem; font-size: 0.85rem; text-align: center; }
+.status.loading { color: #60a5fa; }
+.status.error { color: #f87171; }
+.status.empty { color: #94a3b8; }
+
+.results-header {
+  font-size: 0.8rem; color: #94a3b8; padding: 0.5rem 0;
+}
+
+.repo-card {
+  background: #1e293b;
+  border-radius: 10px;
+  padding: 0.9rem;
+  margin-bottom: 0.6rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.repo-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.repo-name {
+  font-size: 1rem; font-weight: 600; color: #60a5fa;
+  text-decoration: none;
+  word-break: break-all;
+}
+.repo-score { font-size: 0.85rem; color: #a78bfa; font-weight: 600; white-space: nowrap; }
+.repo-desc { font-size: 0.85rem; color: #cbd5e1; margin: 0.4rem 0; line-height: 1.4; }
+.repo-meta { display: flex; gap: 0.75rem; font-size: 0.75rem; color: #64748b; flex-wrap: wrap; }
+.repo-lang { color: #fbbf24; }
+.repo-stars { color: #fde68a; }
+.repo-reasons { font-size: 0.72rem; color: #64748b; margin-top: 0.3rem; word-break: break-all; }
+
+.empty-state { text-align: center; padding: 2rem 0; color: #64748b; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🦟 mosquito</h1>
+    <div class="sub">GitHub 仓库发现 · 自然语言 → 排序</div>
+  </header>
+
+  <div class="search-card">
+    <textarea id="query" placeholder="输入你的需求，例如：轻量级 Python 向量数据库">lightweight python API framework with async support</textarea>
+
+    <div class="presets">
+      <button class="preset-btn" data-q="python web framework">Python Web 框架</button>
+      <button class="preset-btn" data-q="tool for evaluating RAG retrieval quality">RAG 评测工具</button>
+      <button class="preset-btn" data-q="LLM agent framework with tool calling and memory">LLM Agent 框架</button>
+    </div>
+
+    <div class="row">
+      <select id="ranking">
+        <option value="quality">quality</option>
+        <option value="embedding">embedding</option>
+        <option value="rules">rules</option>
+        <option value="bert">bert (二阶段)</option>
+      </select>
+      <input type="number" id="limit" value="10" min="1" max="50" style="width: 4rem;">
+      <label class="inline"><input type="checkbox" id="compare"> compare</label>
+    </div>
+
+    <button class="search-btn" id="searchBtn">🔍 搜索</button>
+  </div>
+
+  <div id="status"></div>
+  <div id="results"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+$('searchBtn').addEventListener('click', doSearch);
+$('query').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSearch(); } });
+document.querySelectorAll('.preset-btn').forEach(b => {
+  b.addEventListener('click', () => { $('query').value = b.dataset.q; });
+});
+
+function setStatus(msg, cls) {
+  const el = $('status');
+  if (!msg) { el.innerHTML = ''; el.className = ''; return; }
+  el.innerHTML = msg; el.className = 'status ' + cls;
+}
+
+function renderResults(data) {
+  const container = $('results');
+  const results = data.results || [];
+  container.innerHTML = '';
+  if (results.length === 0) {
+    container.innerHTML = '<div class="empty-state">没有找到相关仓库</div>';
+    return;
+  }
+  container.innerHTML = `<div class="results-header">共 ${data.total} 个候选，显示前 ${results.length} 个</div>`;
+  results.forEach((r, i) => {
+    const c = r.candidate;
+    const lang = c.language ? `<span class="repo-lang">${c.language}</span>` : '';
+    const stars = `<span class="repo-stars">★ ${c.stars}</span>`;
+    const desc = c.description || '';
+    const reasons = (r.reasons || []).slice(0, 2).join(' · ');
+    const url = c.url || `https://github.com/${c.full_name}`;
+    container.innerHTML += `
+      <div class="repo-card">
+        <div class="repo-top">
+          <a class="repo-name" href="${url}" target="_blank" rel="noopener">${i+1}. ${c.full_name}</a>
+          <span class="repo-score">${r.score.toFixed(4)}</span>
+        </div>
+        <div class="repo-desc">${desc}</div>
+        <div class="repo-meta">${lang} ${stars}</div>
+        <div class="repo-reasons">${reasons}</div>
+      </div>`;
+  });
+}
+
+async function doSearch() {
+  const query = $('query').value.trim();
+  if (!query) return;
+  const ranking = $('ranking').value;
+  const limit = parseInt($('limit').value) || 10;
+  const compare = $('compare').checked;
+  const btn = $('searchBtn');
+  btn.disabled = true;
+  setStatus('搜索中...', 'loading');
+  $('results').innerHTML = '';
+  try {
+    const resp = await fetch('/discover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, limit, ranking, compare }),
+    });
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(err || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    renderResults(data);
+    setStatus('', '');
+  } catch (exc) {
+    setStatus('搜索失败: ' + exc.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
