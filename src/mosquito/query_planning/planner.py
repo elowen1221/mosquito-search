@@ -11,8 +11,20 @@ from __future__ import annotations
 
 import re
 
+from mosquito.models.profile import Profile
+
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 _LATIN_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+# 学习目标缩写展开，用于生成更完整的检索变体
+_GOAL_EXPANSIONS: dict[str, str] = {
+    "rag": "retrieval augmented generation",
+    "llm": "large language model",
+    "ml": "machine learning",
+}
+
+# 学习目标里的额外低信息词（"learn RAG" → ["rag"]）
+_GOAL_FILLER = frozenset({"learn", "learning", "study", "studying", "practice", "practicing"})
 
 # 低信息填充词：停用词 + 口语化表达（"I want" / "looking for" / "works well" 等）
 _FILLER_WORDS = frozenset(
@@ -109,14 +121,36 @@ _ZH_TERMS: list[tuple[str, str]] = [
 class QueryPlanner:
     """确定性启发式查询规划器。"""
 
-    def plan(self, query: str) -> list[str]:
-        """返回 1-4 个 GitHub 搜索友好的关键词查询。"""
+    def plan(self, query: str, profile: Profile | None = None) -> list[str]:
+        """返回 1-4 个 GitHub 搜索友好的关键词查询。
+
+        传入 profile 时额外生成 profile-aware 变体（目标关键词 + 技术栈 + 学习场景），
+        不传则行为与原来完全一致。
+        """
         query = query.strip()
         if not query:
             return []
-        if _CJK_RE.search(query):
-            return self._plan_chinese(query)
-        return self._plan_english(query)
+        base = self._plan_chinese(query) if _CJK_RE.search(query) else self._plan_english(query)
+        if profile is None:
+            return base
+        return self._dedupe(base + self._profile_variants(profile))[:4]
+
+    def _profile_variants(self, profile: Profile) -> list[str]:
+        """由 profile 生成 "rag python tutorial" 这类面向学习的检索变体。"""
+        terms = [t for t in _LATIN_TOKEN_RE.findall(profile.learning_goal.lower())]
+        terms = [
+            t for t in dict.fromkeys(terms) if t not in _FILLER_WORDS and t not in _GOAL_FILLER
+        ]
+        if not terms:
+            return []
+        stack = next((s.strip().lower() for s in profile.tech_stack if s.strip()), "")
+        goal = " ".join(terms)
+        stem = f"{goal} {stack}".strip()
+        variants = [f"{stem} tutorial", f"{stem} example"]
+        if len(terms) == 1 and terms[0] in _GOAL_EXPANSIONS:
+            expanded = _GOAL_EXPANSIONS[terms[0]]
+            variants.append(f"{expanded} {stack}".strip())
+        return variants
 
     # ---- 英文 ----
 

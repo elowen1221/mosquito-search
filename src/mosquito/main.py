@@ -11,15 +11,21 @@ from fastapi.staticfiles import StaticFiles
 
 from mosquito.config import settings
 from mosquito.models.discover import DiscoverRequest, DiscoverResponse
+from mosquito.models.recommend import RecommendRequest, RecommendResponse
 from mosquito.ranking.embedding.ranker import EmbeddingRanker
 from mosquito.ranking.quality.ranker import QualityRanker
 from mosquito.ranking.ranker import Ranker
+from mosquito.recommendation.service import RecommendService
 from mosquito.services.discover import DiscoverService
 from mosquito.sources.github import GitHubSource
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="mosquito", version="0.2.0", description="GitHub 仓库发现 — rules / embedding / quality / bert")
+app = FastAPI(
+    title="mosquito",
+    version="0.2.0",
+    description="GitHub 仓库发现 — rules / embedding / quality / bert，支持 profile-aware 推荐",
+)
 
 # 尝试加载 BertRanker（lazy import），失败不影响现有 ranker
 try:
@@ -59,6 +65,19 @@ async def discover(
     service: DiscoverService = Depends(get_discover_service),
 ) -> DiscoverResponse:
     return await service.discover(request.query, request.limit, request.ranking, request.compare)
+
+
+def get_recommend_service() -> RecommendService:
+    """base 相关性用 rules ranker：无需 embedding 模型，保证 /recommend 可直接运行。"""
+    return RecommendService(source=GitHubSource(), base_ranker=Ranker())
+
+
+@app.post("/recommend", response_model=RecommendResponse)
+async def recommend(
+    request: RecommendRequest,
+    service: RecommendService = Depends(get_recommend_service),
+) -> RecommendResponse:
+    return await service.recommend(request.query, request.profile, request.limit)
 
 
 @app.get("/health")
