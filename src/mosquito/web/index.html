@@ -2,169 +2,623 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0f172a">
-<title>mosquito · GitHub 仓库发现</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f6f7f8">
+<title>Mosquito · Find repos that fit what you want to learn</title>
 <style>
+:root {
+  --bg: #f6f7f8;
+  --surface: #ffffff;
+  --border: #e3e6e8;
+  --text: #1f2328;
+  --text-2: #57606a;
+  --text-3: #8b949e;
+  --accent: #0d9488;
+  --accent-dark: #0f766e;
+  --accent-soft: #f0fdfa;
+  --danger: #b42318;
+  --radius: 10px;
+}
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; }
+[hidden] { display: none !important; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  background: #0f172a;
-  color: #e2e8f0;
-  min-height: 100vh;
-  line-height: 1.5;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
-.container { max-width: 560px; margin: 0 auto; padding: 1rem; }
+.container { max-width: 960px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 
-header { text-align: center; padding: 1.5rem 0 1rem; }
-h1 { font-size: 1.3rem; font-weight: 600; color: #f1f5f9; }
-.sub { font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem; }
+/* ---------- header ---------- */
+header { padding: 2.5rem 0 1.75rem; }
+.logo { font-size: 1.35rem; font-weight: 650; letter-spacing: -0.01em; }
+.logo span { color: var(--accent); }
+.tagline { font-size: 0.95rem; color: var(--text-2); margin-top: 0.3rem; max-width: 640px; }
 
-.search-card {
-  background: #1e293b;
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+/* ---------- how to use ---------- */
+.howto {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
 }
-textarea {
-  width: 100%;
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid #334155;
+.howto b {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+  margin-right: 0.35rem;
+}
+
+/* ---------- panels ---------- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.4rem;
+  margin-bottom: 1.5rem;
+}
+.panel + .panel { margin-top: 0; }
+
+/* ---------- profile summary ---------- */
+.profile-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+  padding: 0.5rem 0.7rem;
+  background: #fbfbfc;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.75rem;
-  font-size: 0.95rem;
-  resize: none;
-  min-height: 3rem;
-  font-family: inherit;
+  font-size: 0.82rem;
+  color: var(--text-2);
 }
-textarea:focus { outline: none; border-color: #3b82f6; }
-
-.row { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
-select, input[type="number"] {
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid #334155;
-  border-radius: 6px;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.85rem;
-  font-family: inherit;
-}
-label.inline { font-size: 0.8rem; color: #94a3b8; display: flex; align-items: center; gap: 0.25rem; }
-
-button.search-btn {
-  width: 100%;
-  background: #3b82f6;
-  color: #fff;
+.profile-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-btn {
+  background: none;
   border: none;
-  border-radius: 8px;
-  padding: 0.75rem;
-  font-size: 1rem;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
   font-weight: 600;
-  margin-top: 0.75rem;
-  cursor: pointer;
-  transition: background 0.15s;
+  color: var(--accent-dark);
+  white-space: nowrap;
 }
-button.search-btn:active { background: #2563eb; }
-button.search-btn:disabled { background: #475569; cursor: not-allowed; }
+.link-btn:hover { text-decoration: underline; }
 
-.presets { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
-.preset-btn {
-  background: #334155;
-  color: #cbd5e1;
-  border: none;
-  border-radius: 6px;
-  padding: 0.35rem 0.7rem;
+/* ---------- recent searches ---------- */
+.recent {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 0.7rem;
+}
+.recent-label { font-size: 0.75rem; color: var(--text-3); }
+.chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15rem 0.65rem;
   font-size: 0.78rem;
+  color: var(--text-2);
   cursor: pointer;
   font-family: inherit;
 }
-.preset-btn:active { background: #475569; }
+.chip:hover { border-color: var(--accent); color: var(--accent-dark); }
 
-.status { padding: 0.75rem; font-size: 0.85rem; text-align: center; }
-.status.loading { color: #60a5fa; }
-.status.error { color: #f87171; }
-.status.empty { color: #94a3b8; }
-
-.results-header {
-  font-size: 0.8rem; color: #94a3b8; padding: 0.5rem 0;
+.field-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.02em;
+}
+textarea, input[type="text"], select {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.92rem;
+  font-family: inherit;
+  transition: border-color 0.12s;
+}
+textarea { resize: none; min-height: 3.4rem; }
+textarea:focus, input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
 }
 
+.grid-main { display: grid; grid-template-columns: 1.4fr 1fr; gap: 0.9rem; margin-top: 0.9rem; }
+.grid-aux { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 0.9rem; margin-top: 0.9rem; }
+
+.btn {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent-dark);
+  border-radius: 8px;
+  padding: 0.55rem 1.4rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.btn:hover { background: var(--accent-dark); }
+.btn:disabled { background: #9ca3af; border-color: #9ca3af; cursor: not-allowed; }
+.btn-row { display: flex; justify-content: flex-end; margin-top: 1rem; }
+
+/* ---------- secondary discover ---------- */
+details.secondary {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 1rem;
+  margin-bottom: 2rem;
+  background: transparent;
+}
+details.secondary summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--text-3);
+  list-style: none;
+  user-select: none;
+}
+details.secondary summary::before { content: "+ "; color: var(--text-3); }
+details.secondary[open] summary::before { content: "– "; }
+details.secondary .inner { padding: 0.5rem 0 0.6rem; display: flex; gap: 0.9rem; align-items: flex-end; flex-wrap: wrap; }
+details.secondary .inner .field { width: auto; }
+details.secondary .btn { background: var(--surface); color: var(--text-2); border: 1px solid var(--border); }
+details.secondary .inner .btn:hover { color: var(--text); border-color: #c9ced3; }
+
+/* ---------- status ---------- */
+.status { font-size: 0.88rem; padding: 0.8rem 0.2rem; color: var(--text-3); }
+.status.loading::after { content: "…"; animation: dots 1.2s steps(3) infinite; }
+@keyframes dots { 0% { content: ""; } 33% { content: "."; } 66% { content: ".."; } 100% { content: "..."; } }
+.status.error { color: var(--danger); }
+
+.results-header { font-size: 0.82rem; color: var(--text-3); margin: 0.2rem 0 0.9rem; }
+
+/* ---------- repo cards ---------- */
 .repo-card {
-  background: #1e293b;
-  border-radius: 10px;
-  padding: 0.9rem;
-  margin-bottom: 0.6rem;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.3rem;
+  margin-bottom: 0.9rem;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
 }
-.repo-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.repo-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
 .repo-name {
-  font-size: 1rem; font-weight: 600; color: #60a5fa;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--text);
   text-decoration: none;
   word-break: break-all;
 }
-.repo-score { font-size: 0.85rem; color: #a78bfa; font-weight: 600; white-space: nowrap; }
-.repo-desc { font-size: 0.85rem; color: #cbd5e1; margin: 0.4rem 0; line-height: 1.4; }
-.repo-meta { display: flex; gap: 0.75rem; font-size: 0.75rem; color: #64748b; flex-wrap: wrap; }
-.repo-lang { color: #fbbf24; }
-.repo-stars { color: #fde68a; }
-.repo-reasons { font-size: 0.72rem; color: #64748b; margin-top: 0.3rem; word-break: break-all; }
+.repo-name:hover { color: var(--accent-dark); }
+.repo-name .owner { color: var(--text-3); font-weight: 500; }
+.match {
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--accent-dark);
+  white-space: nowrap;
+}
+.repo-desc { font-size: 0.88rem; color: var(--text-2); margin: 0.35rem 0 0.6rem; }
 
-.empty-state { text-align: center; padding: 2rem 0; color: #64748b; font-size: 0.9rem; }
+.repo-meta { display: flex; align-items: center; gap: 0.9rem; font-size: 0.8rem; color: var(--text-3); flex-wrap: wrap; }
+.lang-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3572a5; margin-right: 0.3rem; }
+.stars { color: var(--text-2); }
+
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+}
+.badge.easy { background: #ecfdf3; border-color: #bbf7d0; color: #15803d; }
+.badge.medium { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+.badge.hard { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+
+.tags { margin: 0.55rem 0 0; }
+.tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  margin: 0 0.3rem 0.3rem 0;
+}
+
+.why, .start-here {
+  margin-top: 0.7rem;
+  padding: 0.7rem 0.9rem;
+  background: #fbfbfc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.why-title { font-size: 0.75rem; font-weight: 600; color: var(--text-3); margin-bottom: 0.35rem; }
+.why ul, .start-here ul { list-style: none; }
+.why li { font-size: 0.83rem; color: var(--text-2); padding-left: 1.15rem; position: relative; margin: 0.18rem 0; }
+.why li::before { content: "✓"; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+.start-here li { font-size: 0.83rem; color: var(--text-2); padding-left: 1rem; position: relative; margin: 0.18rem 0; }
+.start-here li::before { content: "•"; position: absolute; left: 0.2rem; color: var(--accent-dark); }
+
+.repo-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 0.7rem; }
+.repo-subscore { font-size: 0.72rem; color: var(--text-3); }
+.repo-link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-dark);
+  text-decoration: none;
+}
+.repo-link:hover { text-decoration: underline; }
+
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-3); font-size: 0.9rem; }
+
+@media (max-width: 640px) {
+  .container { padding: 0 1rem 3rem; }
+  .grid-main, .grid-aux { grid-template-columns: 1fr; }
+  .howto { flex-direction: column; gap: 0.35rem; }
+  .repo-head { flex-direction: column; gap: 0.2rem; }
+  .btn-row { justify-content: stretch; }
+  .btn-row .btn { width: 100%; }
+}
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>🦟 mosquito</h1>
-    <div class="sub">GitHub 仓库发现 · 自然语言 → 排序</div>
+    <div class="logo">Mosquito<span>.</span></div>
+    <div class="tagline">Tell Mosquito what you want to learn and what you already know. It finds GitHub repositories that fit you, not just your keywords.</div>
   </header>
 
-  <div class="search-card">
-    <textarea id="query" placeholder="输入你的需求，例如：轻量级 Python 向量数据库">lightweight python API framework with async support</textarea>
-
-    <div class="presets">
-      <button class="preset-btn" data-q="python web framework">Python Web 框架</button>
-      <button class="preset-btn" data-q="tool for evaluating RAG retrieval quality">RAG 评测工具</button>
-      <button class="preset-btn" data-q="LLM agent framework with tool calling and memory">LLM Agent 框架</button>
-    </div>
-
-    <div class="row">
-      <select id="ranking">
-        <option value="quality">quality</option>
-        <option value="embedding">embedding</option>
-        <option value="rules">rules</option>
-        <option value="bert">bert (二阶段)</option>
-      </select>
-      <input type="number" id="limit" value="10" min="1" max="50" style="width: 4rem;">
-      <label class="inline"><input type="checkbox" id="compare"> compare</label>
-    </div>
-
-    <button class="search-btn" id="searchBtn">🔍 搜索</button>
+  <div class="howto">
+    <span><b>1</b>Describe what you want to learn</span>
+    <span><b>2</b>Add your current skills</span>
+    <span><b>3</b>Compare repositories by fit, difficulty and purpose</span>
   </div>
 
-  <div id="status"></div>
+  <div class="panel">
+    <div class="field">
+      <label class="field-label" for="rq">What do you want to learn or build?</label>
+      <textarea id="rq" placeholder="想找一个 RAG 项目练手"></textarea>
+    </div>
+
+    <div class="recent" id="recentWrap" hidden>
+      <span class="recent-label">Recent searches</span>
+      <span id="recentList"></span>
+    </div>
+
+    <div class="profile-summary" id="profileSummary" hidden>
+      <span class="profile-text" id="profileText"></span>
+      <button type="button" class="link-btn" id="editProfileBtn">Edit profile</button>
+    </div>
+
+    <div id="profileForm">
+      <div class="grid-main">
+        <div class="field">
+          <label class="field-label" for="learning_goal">Learning goal</label>
+          <input type="text" id="learning_goal" value="learn RAG" placeholder="learn RAG">
+        </div>
+        <div class="field">
+          <label class="field-label" for="tech_stack">Tech stack</label>
+          <input type="text" id="tech_stack" value="Python" placeholder="Python, FastAPI">
+        </div>
+      </div>
+
+      <div class="grid-aux">
+        <div class="field">
+          <label class="field-label" for="identity">Identity</label>
+          <input type="text" id="identity" value="student" placeholder="student">
+        </div>
+        <div class="field">
+          <label class="field-label" for="skill_level">Skill level</label>
+          <select id="skill_level">
+            <option value="beginner" selected>beginner</option>
+            <option value="intermediate">intermediate</option>
+            <option value="advanced">advanced</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="time_budget">Time budget</label>
+          <select id="time_budget">
+            <option value="">—</option>
+            <option value="weekend">weekend</option>
+            <option value="few_weeks" selected>few_weeks</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" id="recommendBtn">Find repositories</button>
+    </div>
+  </div>
+
+  <details class="secondary">
+    <summary>Advanced: plain search (/discover)</summary>
+    <div class="inner">
+      <div class="field">
+        <label class="field-label" for="ranking">ranking</label>
+        <select id="ranking">
+          <option value="rules">rules</option>
+          <option value="quality">quality</option>
+          <option value="embedding">embedding</option>
+          <option value="bert">bert</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="limit">limit</label>
+        <input type="text" id="limit" value="10" style="width:4.5rem">
+      </div>
+      <div class="field">
+        <label class="field-label" style="visibility:hidden">cmp</label>
+        <label style="font-size:0.82rem;color:var(--text-2)"><input type="checkbox" id="compare"> compare</label>
+      </div>
+      <div class="field">
+        <button class="btn" id="searchBtn">Search</button>
+      </div>
+    </div>
+  </details>
+
+  <div id="status" class="status"></div>
   <div id="results"></div>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
 
+$('recommendBtn').addEventListener('click', doRecommend);
 $('searchBtn').addEventListener('click', doSearch);
-$('query').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSearch(); } });
-document.querySelectorAll('.preset-btn').forEach(b => {
-  b.addEventListener('click', () => { $('query').value = b.dataset.q; });
+
+// ---------- 本地 Profile / 最近搜索（仅浏览器 localStorage，不上传） ----------
+const PROFILE_KEY = 'mosquito.profile';
+const RECENT_KEY = 'mosquito.recent_searches';
+const MAX_RECENT = 8;
+const TIME_LABELS = { weekend: 'Weekend', few_weeks: 'Few weeks' };
+
+function loadProfile() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null');
+    return p && typeof p === 'object' ? p : null;
+  } catch (e) { return null; }
+}
+
+function currentProfile() {
+  const p = {
+    identity: $('identity').value.trim() || 'student',
+    learning_goal: $('learning_goal').value.trim(),
+    tech_stack: $('tech_stack').value.split(',').map(s => s.trim()).filter(Boolean),
+    skill_level: $('skill_level').value,
+  };
+  const tb = $('time_budget').value;
+  if (tb) p.time_budget = tb;
+  return p;
+}
+
+function saveProfile() {
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(currentProfile())); } catch (e) { /* 隐私模式忽略 */ }
+  renderProfileSummary();
+}
+
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+function summaryText() {
+  const parts = [];
+  const identity = $('identity').value.trim();
+  const stack = $('tech_stack').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (identity) parts.push(cap(identity));
+  if (stack.length) parts.push(stack.join(', '));
+  if ($('skill_level').value) parts.push(cap($('skill_level').value));
+  const tb = $('time_budget').value;
+  if (tb) parts.push(TIME_LABELS[tb] || tb);
+  return parts.join(' · ');
+}
+
+function renderProfileSummary() {
+  $('profileText').textContent = summaryText() || 'No profile yet';
+}
+
+function setProfileExpanded(expanded) {
+  $('profileForm').hidden = !expanded;
+  $('profileSummary').hidden = expanded;
+  $('editProfileBtn').textContent = expanded ? 'Done' : 'Edit profile';
+}
+
+$('editProfileBtn').addEventListener('click', () => {
+  setProfileExpanded($('profileForm').hidden);
 });
+
+['identity', 'learning_goal', 'tech_stack', 'skill_level', 'time_budget'].forEach(id => {
+  $(id).addEventListener('change', saveProfile);
+  $(id).addEventListener('input', saveProfile);
+});
+
+function loadRecent() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+    return Array.isArray(arr) ? arr.filter(x => typeof x === 'string' && x.trim()).slice(0, MAX_RECENT) : [];
+  } catch (e) { return []; }
+}
+
+function renderRecent(list) {
+  const box = $('recentList');
+  box.innerHTML = '';
+  $('recentWrap').hidden = list.length === 0;
+  list.forEach(q => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.textContent = q;
+    chip.title = q;
+    chip.addEventListener('click', () => {
+      $('rq').value = q;
+      $('rq').focus();
+    });
+    box.appendChild(chip);
+  });
+}
+
+function addRecent(query) {
+  const q = query.trim();
+  if (!q) return;
+  const list = loadRecent().filter(x => x !== q);
+  list.unshift(q);
+  const next = list.slice(0, MAX_RECENT);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch (e) { /* 忽略 */ }
+  renderRecent(next);
+}
 
 function setStatus(msg, cls) {
   const el = $('status');
-  if (!msg) { el.innerHTML = ''; el.className = ''; return; }
-  el.innerHTML = msg; el.className = 'status ' + cls;
+  if (!msg) { el.textContent = ''; el.className = 'status'; return; }
+  el.textContent = msg; el.className = 'status ' + (cls || '');
 }
 
-function renderResults(data) {
+function friendlyError(status, detail) {
+  if (status === 429) return 'GitHub API 限流中，请稍后重试（配置 GITHUB_TOKEN 可提升额度）。';
+  if (status === 502) return 'GitHub API 暂时不可用，请稍后重试。';
+  if (status === 503) return '该排序方式暂不可用，请换一个试试。';
+  return '请求失败' + (detail ? '：' + detail : '');
+}
+
+async function postJson(url, body) {
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    let detail = '';
+    try { detail = (await resp.json()).detail || ''; } catch (e) { detail = ''; }
+    throw new Error(friendlyError(resp.status, detail));
+  }
+  return resp.json();
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+function splitName(fullName) {
+  const parts = String(fullName).split('/');
+  return parts.length === 2
+    ? `<span class="owner">${esc(parts[0])} /</span> ${esc(parts[1])}`
+    : esc(fullName);
+}
+
+function formatStars(n) {
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(n);
+}
+
+// recommended_for API 值 -> 人类可读标签（后端字段不变）
+const USE_LABELS = {
+  learning: 'Learn from it',
+  course_project: 'Good for coursework',
+  source_reading: 'Read the source',
+  weekend_project: 'Weekend-sized',
+};
+function useLabel(u) { return USE_LABELS[u] || u; }
+
+// Start here：仅根据现有 signals 派生的保守提示，不猜仓库结构
+function startHereHints(r) {
+  const uses = new Set(r.recommended_for || []);
+  const hints = [];
+  if (uses.has('weekend_project')) hints.push('Start with the smallest runnable example.');
+  if (uses.has('course_project')) hints.push('Run the demo first, then identify one module you can modify.');
+  if (r.difficulty === 'hard') hints.push('Try the official demo or quickstart before exploring the source.');
+  else if (uses.has('source_reading')) hints.push('Run the project before reading the full codebase.');
+  else if (uses.has('learning')) hints.push('Start with the README quickstart or examples.');
+  return hints.slice(0, 2);
+}
+
+// ---------- /recommend ----------
+
+function renderRecommendations(data) {
+  const container = $('results');
+  const results = data.results || [];
+  container.innerHTML = '';
+  if (results.length === 0) {
+    container.innerHTML = '<div class="empty-state">No suitable repositories found. Try a broader learning goal or tech stack.</div>';
+    return;
+  }
+  container.innerHTML = `<div class="results-header">${data.total} candidates scanned · top ${results.length} for your profile</div>`;
+  results.forEach(r => {
+    const c = r.repo;
+    const url = c.url || `https://github.com/${c.full_name}`;
+    const matchPct = Math.round(r.final_score * 100);
+    const lang = c.language ? `<span><span class="lang-dot"></span>${esc(c.language)}</span>` : '';
+    const tags = (r.recommended_for || []).map(u => `<span class="tag">${esc(useLabel(u))}</span>`).join('');
+    const why = (r.why_recommended || []).map(w => `<li>${esc(w)}</li>`).join('');
+    const hints = startHereHints(r).map(h => `<li>${esc(h)}</li>`).join('');
+    container.innerHTML += `
+      <div class="repo-card">
+        <div class="repo-head">
+          <a class="repo-name" href="${url}" target="_blank" rel="noopener">${splitName(c.full_name)}</a>
+          <span class="match">${matchPct}% match</span>
+        </div>
+        <div class="repo-desc">${esc(c.description || '')}</div>
+        <div class="repo-meta">
+          ${lang}
+          <span class="stars">★ ${formatStars(c.stars)}</span>
+          <span class="badge ${r.difficulty}">${r.difficulty}</span>
+        </div>
+        ${tags ? `<div class="tags">${tags}</div>` : ''}
+        ${why ? `<div class="why"><div class="why-title">Why recommended</div><ul>${why}</ul></div>` : ''}
+        ${hints ? `<div class="start-here"><div class="why-title">Start here</div><ul>${hints}</ul></div>` : ''}
+        <div class="repo-foot">
+          <span class="repo-subscore">fit ${r.fit_score.toFixed(2)} · relevance ${r.base_score.toFixed(2)}</span>
+          <a class="repo-link" href="${url}" target="_blank" rel="noopener">View on GitHub →</a>
+        </div>
+      </div>`;
+  });
+}
+
+async function doRecommend() {
+  const query = $('rq').value.trim();
+  if (!query) return;
+  addRecent(query);
+  const btn = $('recommendBtn');
+  btn.disabled = true;
+  setStatus('Finding repositories that fit your profile', 'loading');
+  $('results').innerHTML = '';
+  try {
+    const body = { query, limit: 10, profile: currentProfile() };
+    const data = await postJson('/recommend', body);
+    renderRecommendations(data);
+    setStatus('', '');
+  } catch (exc) {
+    setStatus(exc.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------- /discover ----------
+
+function renderDiscoverResults(data) {
   const container = $('results');
   const results = data.results || [];
   container.innerHTML = '';
@@ -175,53 +629,64 @@ function renderResults(data) {
   container.innerHTML = `<div class="results-header">共 ${data.total} 个候选，显示前 ${results.length} 个</div>`;
   results.forEach((r, i) => {
     const c = r.candidate;
-    const lang = c.language ? `<span class="repo-lang">${c.language}</span>` : '';
-    const stars = `<span class="repo-stars">★ ${c.stars}</span>`;
-    const desc = c.description || '';
-    const reasons = (r.reasons || []).slice(0, 2).join(' · ');
     const url = c.url || `https://github.com/${c.full_name}`;
+    const lang = c.language ? `<span><span class="lang-dot"></span>${esc(c.language)}</span>` : '';
+    const reasons = (r.reasons || []).slice(0, 2).join(' · ');
     container.innerHTML += `
       <div class="repo-card">
-        <div class="repo-top">
-          <a class="repo-name" href="${url}" target="_blank" rel="noopener">${i+1}. ${c.full_name}</a>
-          <span class="repo-score">${r.score.toFixed(4)}</span>
+        <div class="repo-head">
+          <a class="repo-name" href="${url}" target="_blank" rel="noopener">${splitName(c.full_name)}</a>
+          <span class="match">${r.score.toFixed(2)}</span>
         </div>
-        <div class="repo-desc">${desc}</div>
-        <div class="repo-meta">${lang} ${stars}</div>
-        <div class="repo-reasons">${reasons}</div>
+        <div class="repo-desc">${esc(c.description || '')}</div>
+        <div class="repo-meta">${lang} <span class="stars">★ ${formatStars(c.stars)}</span></div>
+        <div class="repo-foot"><span class="repo-subscore">${esc(reasons)}</span>
+        <a class="repo-link" href="${url}" target="_blank" rel="noopener">View on GitHub →</a></div>
       </div>`;
   });
 }
 
 async function doSearch() {
-  const query = $('query').value.trim();
+  const query = $('rq').value.trim();
   if (!query) return;
-  const ranking = $('ranking').value;
-  const limit = parseInt($('limit').value) || 10;
-  const compare = $('compare').checked;
+  addRecent(query);
   const btn = $('searchBtn');
   btn.disabled = true;
-  setStatus('搜索中...', 'loading');
+  setStatus('搜索中', 'loading');
   $('results').innerHTML = '';
   try {
-    const resp = await fetch('/discover', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, limit, ranking, compare }),
+    const data = await postJson('/discover', {
+      query,
+      limit: parseInt($('limit').value) || 10,
+      ranking: $('ranking').value,
+      compare: $('compare').checked,
     });
-    if (!resp.ok) {
-      const err = await resp.text();
-      throw new Error(err || `HTTP ${resp.status}`);
-    }
-    const data = await resp.json();
-    renderResults(data);
+    renderDiscoverResults(data);
     setStatus('', '');
   } catch (exc) {
-    setStatus('搜索失败: ' + exc.message, 'error');
+    setStatus(exc.message, 'error');
   } finally {
     btn.disabled = false;
   }
 }
+
+// ---------- 初始化：恢复本地 Profile 与最近搜索 ----------
+(function init() {
+  const saved = loadProfile();
+  if (saved) {
+    if (saved.identity) $('identity').value = saved.identity;
+    if (saved.learning_goal != null) $('learning_goal').value = saved.learning_goal;
+    $('tech_stack').value = Array.isArray(saved.tech_stack) ? saved.tech_stack.join(', ') : '';
+    $('skill_level').value = saved.skill_level || 'beginner';
+    $('time_budget').value = saved.time_budget || '';
+    renderProfileSummary();
+    setProfileExpanded(false);   // 有本地 Profile：默认折叠，仅显示摘要
+  } else {
+    $('profileSummary').hidden = true;
+    setProfileExpanded(true);    // 首次访问：直接展示 Profile 输入区
+  }
+  renderRecent(loadRecent());
+})();
 </script>
 </body>
 </html>

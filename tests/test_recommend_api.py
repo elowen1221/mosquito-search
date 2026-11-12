@@ -107,3 +107,56 @@ def test_discover_response_unaffected(make_candidate):
     assert body["results"][0]["candidate"]["full_name"]
     assert "fit_score" not in body["results"][0]
     assert body["comparison"] is None
+
+
+# ---------- Web UI 静态页面 ----------
+
+
+def test_web_ui_contains_profile_section():
+    client = TestClient(app)
+    html = client.get("/").text
+
+    # Profile 输入区域
+    for field_id in ("identity", "learning_goal", "tech_stack", "skill_level", "time_budget"):
+        assert f'id="{field_id}"' in html
+    # skill_level 三档可选
+    for level in ("beginner", "intermediate", "advanced"):
+        assert level in html
+    # 页面主入口是 /recommend
+    assert '"/recommend"' in html or "'/recommend'" in html
+
+
+def test_web_ui_request_body_shape():
+    """前端拼装的请求字段与后端模型一致。"""
+    html = TestClient(app).get("/").text
+    # 前端 fetch /recommend，body 含 query / profile 及各字段名
+    for key in ("query", "profile", "identity", "learning_goal", "tech_stack", "skill_level", "time_budget"):
+        assert key in html
+    # 结果卡片展示所需字段
+    for field in ("fit_score", "final_score", "difficulty", "recommended_for", "why_recommended"):
+        assert field in html
+
+
+def test_web_ui_persists_profile_and_recent_searches_locally():
+    """Profile / 最近搜索只用浏览器 localStorage，不落服务端。"""
+    html = TestClient(app).get("/").text
+    assert "localStorage" in html
+    assert "mosquito.profile" in html
+    assert "mosquito.recent_searches" in html
+    # 最近搜索上限 8 条
+    assert "MAX_RECENT = 8" in html
+    # Profile 默认折叠（摘要 + Edit profile）
+    for marker in ("profileSummary", "Edit profile", "profileForm"):
+        assert marker in html
+
+
+def test_web_ui_uses_relative_api_paths_without_token_leak():
+    """前端只走相对路径，可直接部署到任意域名；且不暴露 GitHub Token。"""
+    html = TestClient(app).get("/").text
+    assert "'/recommend'" in html
+    assert "'/discover'" in html
+    assert "127.0.0.1" not in html
+    assert "localhost" not in html
+    # 浏览器端不携带/不暴露任何 GitHub 凭证（GITHUB_TOKEN 仅作为服务端环境变量名提示，非凭证值）
+    assert "Authorization" not in html
+    assert "ghp_" not in html

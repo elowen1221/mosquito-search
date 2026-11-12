@@ -16,9 +16,10 @@ Mosquito 把自然语言需求改写成更适合 GitHub Search 的查询，召�
   - `embedding`：`bge-small-zh-v1.5`（fastembed / ONNX）语义相似度
   - `quality`：`0.6 × relevance + 0.4 × quality`
   - `bert`：二阶段精排 —— 先由 quality 取 Top-20 截断，再由 cross-encoder 逐条打分
-- **服务**：FastAPI（`/discover`、`/health`）+ 移动优先 Web UI
+- **Profile-aware 推荐**：`/recommend` 在用户画像（身份 / 学习目标 / 技术栈 / 水平 / 时间预算）上对候选算 profile fit，组合 `0.6 × relevance + 0.4 × profile fit`，并给出难度、推荐用途和可读理由（默认 rules base，无需 BERT / embedding 模型）
+- **服务**：FastAPI（`/discover`、`/recommend`、`/health`）+ 移动优先 Web UI
 - **评测**：20 个 query、359 条人工标注，NDCG@10 为主指标
-- **规模**：206 个单元测试，覆盖排序 / API / 检索 / 缓存 / 评测 / 标注
+- **规模**：225 个单元测试，覆盖排序 / API / 检索 / 缓存 / 评测 / 标注
 
 ## Pipeline
 
@@ -140,6 +141,34 @@ uv run uvicorn mosquito.main:app --reload   # 打开 http://127.0.0.1:8000/
 
 `GET /health` 返回最小 liveness 信息（版本、BERT 依赖是否可用、是否配置 token），不泄露路径或环境变量。
 
+### `POST /recommend`
+
+Profile-aware 推荐：在普通检索排序之上叠加**用户画像适配**。
+
+```json
+{
+  "query": "想找一个 RAG 项目练手",
+  "limit": 10,
+  "profile": {
+    "identity": "student",
+    "learning_goal": "learn RAG",
+    "tech_stack": ["Python"],
+    "skill_level": "beginner",
+    "time_budget": "few_weeks"
+  }
+}
+```
+
+Profile 字段：`identity`（必填）、`learning_goal`（必填）、`tech_stack`（数组，默认 `[]`）、`skill_level`（`beginner` / `intermediate` / `advanced`，默认 `beginner`）、`time_budget`（可选 `weekend` / `few_weeks`）。
+
+`fit_score` 由四个维度加权（均为 0–1）：`topic_fit`（主题证据：name > topics > description）、`stack_fit`（语言/topics 与技术栈）、`difficulty_fit`（仓库体积估计难度，按 skill_level 对齐）、`learning_value`（tutorial / example / starter 性质）。
+
+```text
+final_score = 0.6 × relevance + 0.4 × profile fit
+```
+
+每个结果附带 `difficulty`、`recommended_for`（learning / course_project / source_reading / weekend_project）和模板化的 `why_recommended`（中文短句，无 LLM 生成）。
+
 ## 评测数据与标注
 
 ```bash
@@ -179,6 +208,7 @@ src/mosquito/
 │   ├── quality/        relevance + quality 加权
 │   └── bert/           cross-encoder 二阶段精排
 ├── evaluation/         数据集、标注、指标、离线评测
+├── recommendation/     profile fit scoring + /recommend 编排
 ├── services/           DiscoverService 编排
 └── web/                移动优先 Web UI（纯 HTML/CSS/JS）
 
@@ -199,14 +229,12 @@ tests/     单元测试（不依赖网络与真实模型权重）
 
 ## 手机 Web UI
 
-移动优先搜索页，零前端构建：
+移动优先页面，零前端构建。主页是 **Profile-aware 推荐** 演示入口（需求 + 身份 / 学习目标 / 技术栈 / 水平 / 时间预算），结果卡片展示难度、用途徽章和推荐理由；下方折叠保留普通 `/discover` 搜索（ranking / limit / compare）。
 
 ```bash
 uv run uvicorn mosquito.main:app --host 0.0.0.0 --port 8000
 # 手机浏览器访问 http://<your-server-ip>:8000/
 ```
-
-包含自然语言搜索框、ranking 选择（quality / embedding / bert）、limit 与 compare 开关、3 个 demo preset query，以及展示 `full_name` / description / language / stars / score / reasons / GitHub 链接的 repo card。
 
 ## 生产部署
 
@@ -259,7 +287,6 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## Roadmap
 
-- Profile-aware repository recommendation
 - Personalized fit scoring by skill stack and learning goal
 - Concise repository explanations for learners
 
